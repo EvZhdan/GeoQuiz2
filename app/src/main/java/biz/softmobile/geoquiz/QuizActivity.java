@@ -1,5 +1,6 @@
 package biz.softmobile.geoquiz;
 
+import android.app.Activity;
 import android.content.Intent;
 import android.support.annotation.IdRes;
 import android.support.v7.app.AppCompatActivity;
@@ -25,6 +26,8 @@ public class QuizActivity extends AppCompatActivity {
 
     private static final String TAG = "QuizActivity";
     private static final String KEY_INDEX = "index";
+    private static final int REQUEST_CODE_CHEAT = 0;
+
 
     private Question[] mQuestionBank = new Question[]{
             new Question(R.string.question_australia,true),
@@ -35,6 +38,7 @@ public class QuizActivity extends AppCompatActivity {
             new Question(R.string.question_asia,true),};
 
     private int mCurrentIndex = 0;
+    private boolean mIsCheater;
 
 
 
@@ -87,6 +91,7 @@ public class QuizActivity extends AppCompatActivity {
             @Override
             public void onClick(View view) {
                 mCurrentIndex = (mCurrentIndex + 1) % mQuestionBank.length;
+                mIsCheater = false;
                 updateQuestion();
                 mFalseButton.setClickable(true);
                 mTrueButton.setClickable(true);
@@ -97,8 +102,9 @@ public class QuizActivity extends AppCompatActivity {
         mCheatButton.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View view) {
-                Intent intent = new Intent(QuizActivity.this, CheatActivity.class);
-                startActivity(intent);
+                boolean answerIsTrue = mQuestionBank[mCurrentIndex].ismAnswerTrue();
+                Intent intent = CheatActivity.newIntent(QuizActivity.this,answerIsTrue);
+                startActivityForResult(intent,REQUEST_CODE_CHEAT);
             }
         });
 
@@ -123,26 +129,46 @@ public class QuizActivity extends AppCompatActivity {
             }
         });
     }
+
+    @Override
+    protected void onActivityResult(int requestCode, int resultCode, Intent data){
+        if(resultCode != Activity.RESULT_OK){
+            return;
+        }
+        if(requestCode == REQUEST_CODE_CHEAT){
+            if(data == null){
+                return;
+            }
+            mIsCheater = CheatActivity.wasAnswerShown(data);
+        }
+    }
+
+
     private void updateQuestion(){
 //        Log.d(TAG,"Updating question text", new Exception());
        int question = mQuestionBank[mCurrentIndex].getmTextResId();
         mQuestionTextView.setText(question);
     }
 
-    private void checkAnswer(boolean userPressedTrue){
+    private void checkAnswer(boolean userPressedTrue) {
         boolean answerIsTrue = mQuestionBank[mCurrentIndex].ismAnswerTrue();
         this.allClicks++;
         int messageResId = 0;
 
-        if(userPressedTrue == answerIsTrue){
-            messageResId = R.string.correct_toast;
-            trueAnswers++;
+        if (mIsCheater) {
+            messageResId = R.string.judgment_toast;
         } else {
-            messageResId = R.string.incorrect_toast;
+
+            if (userPressedTrue == answerIsTrue) {
+                messageResId = R.string.correct_toast;
+                trueAnswers++;
+            } else {
+                messageResId = R.string.incorrect_toast;
+            }
         }
-        correct();
-        Toast.makeText(this,messageResId,Toast.LENGTH_SHORT).show();
-    }
+            correct();
+            Toast.makeText(this, messageResId, Toast.LENGTH_SHORT).show();
+        }
 
     public void correct(){
         double percent = (double) trueAnswers/allClicks * 100;
